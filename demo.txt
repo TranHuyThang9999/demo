@@ -1,0 +1,296 @@
+
+
+// in dex
+
+
+@{
+    ViewBag.Title = "Index";
+}
+
+<h2>Index</h2>
+@using (Html.BeginForm())
+            {
+                <p>Tim ma nhan vien : @Html.TextBox("search")</p>
+                <input type="submit" value="Tim"/>
+            }
+
+
+<table border="1" style="font-size:14px">
+    <tr>
+        <th> Ma nhan vien</th>
+        <th>
+            @Html.ActionLink("Sap theo ho ten", "Index", new { sortOrder = ViewBag.SapTheoTen })
+        </th>
+        <th>Ma phong</th>
+        <th>
+            @Html.ActionLink("Sap theo luong", "Index", new { sortOrder = ViewBag.SapTheoLuong })
+        </th>
+
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.Manv</td>
+            <td>@item.Hoten</td>
+            <td>@item.Maphong</td>
+            <td>@item.Luong</td>
+            <td>
+                @Html.ActionLink("Chi tiet", "Chitiet",new {id= item.Manv.Trim() }) |
+                @Html.ActionLink("Sua lai", "Sua",new { id= item.Manv.Trim()}) |
+                @Html.ActionLink("Xoa","Xoa",new { id=item.Manv.Trim()})
+            </td>
+        </tr>
+
+    }
+
+</table>
+@Html.ActionLink("Them moi","Them","NhanViens")
+
+//// chi tiết
+
+
+@{
+    ViewBag.Title = "chitiet";
+}
+
+<h2>chitiet</h2>
+<fieldset>
+    <td>Ma nhan vien :  @Model.Manv</td></br>
+    <td>Ho ten : @Model.Hoten</td></br>
+    <td>Ma phong : @Model.Maphong</td></br>
+    <td>Luong : @Model.Luong</td></br>
+</fieldset>
+@using (Html.BeginForm())
+{
+    <p>
+        @Html.ActionLink("Ve danh  sach", "Index")
+    </p>
+}
+
+
+
+// update
+
+
+
+@{
+    ViewBag.Title = "Sua";
+}
+
+<h2>Sua</h2>
+
+<table>
+    @using (Html.BeginForm())
+    {
+        @Html.ValidationSummary(true)
+        <tr>
+            <td>Ho ten : </td>
+            <td>@Html.TextBox("Hoten")<font color="red">@ViewData["loi1"]</font></td>
+        </tr>
+        <tr>
+            <td>Ma phong : </td>
+            <td>@Html.DropDownList("Phong")</td>
+        </tr>
+        <tr>
+            <td>Luong : </td>
+            <td>@Html.TextBox("Luong")<font color="red">@ViewData["loi2"]</font></td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <input type="submit" value="Update"/> |
+                @Html.ActionLink("ve danh  sach","Index")
+            </td>
+        </tr>
+    }
+</table>
+
+// xóa
+
+
+@{
+    ViewBag.Title = "Xoa";
+}
+
+<h2>Xoa</h2>
+
+<h2>chitiet</h2>
+<fieldset>
+    <td>Ma nhan vien :  @Model.Manv</td></br>
+    <td>Ho ten : @Model.Hoten</td></br>
+    <td>Ma phong : @Model.Maphong</td></br>
+    <td>Luong : @Model.Luong</td></br>
+</fieldset>
+@using (Html.BeginForm())
+{
+    <p>
+        <input type="submit" value="Xoa"/>
+        @Html.ActionLink("Ve danh  sach", "Index")
+    </p>
+}
+
+// tim kiem
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using WebApplication10.Models;
+
+namespace WebApplication10.Controllers
+{
+    public class NhanViensController : Controller
+    {
+        Model1 db = new Model1();
+        // GET: NhanViens
+        public ActionResult Index(string sortOrder, string search)
+        {
+            ViewBag.SapTheoTen = String.IsNullOrEmpty(sortOrder) ? "ten_desc" : "";
+            ViewBag.SapTheoLuong = sortOrder == "luong" ? "luong_desc" : "luong";
+
+            var query = db.NhanViens.Select(p => p);
+
+
+            if (!String.IsNullOrEmpty(search))
+            {
+                query = query.Where(p => p.Manv.Contains(search));
+            }
+
+            switch (sortOrder)
+            {
+                case "ten_desc":
+                    query = query.OrderByDescending(s => s.Hoten);
+                    break;
+                case "luong":
+                    query = query.OrderBy(s => s.Luong);
+                    break;
+                case "luong_desc":
+                    query = query.OrderByDescending(s => s.Luong);
+                    break;
+                default:
+                    query = query.OrderBy(s => s.Hoten);
+                    break;
+            }
+
+            return View(query.ToList());
+        }
+        [HttpGet]
+        public ActionResult Chitiet(string id)
+        {
+            var query = db.NhanViens.Where(p => p.Manv == id).First();
+
+            return View(query);
+        }
+        [HttpGet]
+        public ActionResult Sua(string id)
+        {
+            var query = db.NhanViens.First(p => p.Manv == id);
+            ViewData["Phong"] = new SelectList(db.Phongs, "Maphong", "Tenphong");
+            return View(query);
+        }
+        [HttpPost]
+        public ActionResult Sua(string id, FormCollection f)
+        {
+            var nv = db.NhanViens.First(m => m.Manv == id);
+            var ten = f["Hoten"];
+            var phong = f["Phong"];
+            var luong = f["Luong"];
+            if (String.IsNullOrEmpty(ten))
+            {
+                ViewData["loi1"] = "Ho ten khong duoc de trong";
+            }
+            else if (String.IsNullOrEmpty(phong))
+            {
+                ViewData["loi2"] = "Ho phong khong duoc de trong";
+            }
+            else
+            {
+                nv.Hoten = ten;
+                nv.Maphong = phong;
+                nv.Luong = Convert.ToDouble(luong);
+                UpdateModel(nv);
+                db.SaveChanges();
+                RedirectToAction("Index");
+            }
+            return this.Sua(id);
+        }
+
+        [HttpGet]
+        public ActionResult Xoa(string id)
+        {
+            var query = db.NhanViens.First(p => p.Manv == id);
+            return View(query);
+        }
+        [HttpPost]
+        public ActionResult Xoa(string id, FormCollection f)
+        {
+
+            var query = db.NhanViens.First(m => m.Manv == id);
+            db.NhanViens.Remove(query);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+        [HttpGet]
+        public ActionResult Them()
+        {
+            ViewData["Phong"] = new SelectList(db.Phongs, "Maphong", "Tenphong");
+            return View();
+        }
+        [HttpPost]
+        public ActionResult Them(FormCollection f,NhanVien nv)
+        {
+            var manv = f["Manv"];
+            var ten = f["Hoten"];
+            var phong = f["Phong"];
+            var luong = f["Luong"];
+            try
+            {
+                if (String.IsNullOrEmpty(manv))
+                {
+                    ViewData["loi1"] = "ma nv khong duoc de trong";
+                }
+                else if (String.IsNullOrEmpty(ten))
+                {
+                    ViewData["loi2"] = "Ho ten khong duoc de trong";
+                }
+                else if (String.IsNullOrEmpty(phong))
+                {
+                    ViewData["loi3"] = "Phong khong duoc de trong";
+                }
+                else if (String.IsNullOrEmpty(luong))
+                {
+                    ViewData["loi4"] = "Luong khong duoc de trong";
+                }
+                else
+                {
+                    var nhanvien = db.NhanViens.Where(p => p.Manv == manv).First();
+                    if (String.IsNullOrEmpty(nhanvien.Manv))
+                    {
+                        nv.Manv = manv;
+                        nv.Hoten = ten;
+                        nv.Maphong = phong;
+                        nv.Luong = Convert.ToDouble(luong);
+                        db.NhanViens.Add(nv);
+                        db.SaveChanges();
+                        return RedirectToAction("Index");
+                    }
+                    else
+                    {
+                        ViewData["exists"] = "Ma nhan vien da ton tai";
+                    }
+                 
+                }
+            }
+            catch (Exception ex)
+            {
+                ViewData["ex"] = "loi server"+ex.Message;
+            }
+            
+            return this.Them();
+        }
+    }
+}
+
+
