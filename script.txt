@@ -1,153 +1,170 @@
---DROP DATABASE QuanLySinhVien
-CREATE DATABASE QuanLySinhVien
-GO
-use QuanLySinhVien
+USE master
 GO
 
-CREATE TABLE SinhVien
-	(
-	MaSV char(4)not null PRIMARY KEY,
-	TenSV nvarchar(30) not null,
-	QueQuan nvarchar(50) not null,
-	)
-	GO
-CREATE TABLE MonHoc
-	(
-	MaMon char(4) not null PRIMARY KEY,
-	TenMon nvarchar(50)not null,
-	ThoiGianHoc nvarchar(40),
-	HocPhi decimal(8,2)
-	)
-	GO
-CREATE TABLE DangKy
-	(
-	MaSV char(4) not null REFERENCES	SinhVien(MaSV),
-	MaMon char(4) not null REFERENCES MonHoc(MaMon)
-	PRIMARY KEY(MaSV, MaMon),
-	NgayBatDau datetime not null,
-	NgayKetThuc datetime,
-	)
-	GO
---cau 2
-INSERT INTO SinhVien VALUES ('S001', N'Trần Thanh Tùng', N'Đông Anh - Hà Nội')
-INSERT INTO SinhVien VALUES ('S002', N'Nguyễn Thu Hà',N'TX Hòa Bình - Hòa Bình' )
-INSERT INTO SinhVien VALUES ('S003',N'Lê Ngọc Huyền',N'TX Sơ Tây - Hà Nội')
+IF DB_ID('BanHangDB') IS NOT NULL
+    DROP DATABASE BanHangDB
+GO
 
-INSERT INTO MonHoc VALUES ('M001',N'Tin đại cương',N'Học kỳ 1',1000)
-INSERT INTO MonHoc VALUES ('M002',N'Lập trình Windows',N'Học kỳ 1',1250)
-INSERT INTO MonHoc VALUES ('M003',N'Cơ sở dữ liệu',N'Học kỳ 2',1423)
+CREATE DATABASE BanHangDB
+GO
 
-Insert Into DangKy Values ('S001','M001','2012/09/01','2012/12/08')
-INSERT INTO DangKy VALUES ('S001', 'M002','2012/10/12','2012/12/28')
-INSERT INTO DangKy VALUES ('S003', 'M003','2013/04/09','2013/07/19')
-INSERT INTO DangKy VALUES ('S001', 'M003','2013/09/03','2013/12/30')
+USE BanHangDB
+GO
 
+CREATE TABLE VatTu (
+    MaVT INT PRIMARY KEY,
+    TenVT NVARCHAR(100),
+    DonViTinh NVARCHAR(50),
+    SoLuongCon INT
+)
+GO
 
---Câu 1 (1.5 điểm):
+CREATE TABLE HoaDon (
+    MaHD INT PRIMARY KEY,
+    NgayXuat DATE,
+    TenKhachHang NVARCHAR(100)
+)
+GO
 
-CREATE PROCEDURE ThongKeDangKy
+CREATE TABLE ChiTietHD (
+    MaHD INT,
+    MaVT INT,
+    DonGia DECIMAL(18,2),
+    SoLuongBan INT,
+    FOREIGN KEY (MaHD) REFERENCES HoaDon(MaHD),
+    FOREIGN KEY (MaVT) REFERENCES VatTu(MaVT)
+)
+GO
+
+-- Nhập dữ liệu
+INSERT INTO VatTu (MaVT, TenVT, DonViTinh, SoLuongCon)
+VALUES (1, N'Vật Tư 1', N'Cái', 10),
+       (2, N'Vật Tư 2', N'Chiếc', 5),
+       (3, N'Vật Tư 3', N'Bộ', 3)
+GO
+
+INSERT INTO HoaDon (MaHD, NgayXuat, TenKhachHang)
+VALUES (1, '2022-01-01', N'Khách Hàng 1'),
+       (2, '2022-01-02', N'Khách Hàng 2'),
+       (3, '2022-01-03', N'Khách Hàng 3')
+GO
+
+INSERT INTO ChiTietHD (MaHD, MaVT, DonGia, SoLuongBan)
+VALUES (1, 1, 10000, 2),
+       (1, 2, 20000, 1),
+       (2, 1, 15000, 3),
+       (2, 3, 30000, 2),
+       (3, 3, 25000, 1)
+GO
+
+-- Xem dữ liệu
+SELECT * FROM VatTu
+GO
+
+SELECT * FROM HoaDon
+GO
+
+SELECT * FROM ChiTietHD
+GO
+
+--Câu 2: Tạo hàm để lấy thông tin vật tư trong một hóa đơn với mã hóa đơn được nhập:
+
+CREATE FUNCTION GetThongTinVatTu(@MaHD INT)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT V.TenVT, V.DonViTinh, C.DonGia * C.SoLuongBan AS GiaTri
+    FROM VatTu V
+    INNER JOIN ChiTietHD C ON V.MaVT = C.MaVT
+    WHERE C.MaHD = @MaHD
+)
+GO
+
+--Gọi hàm với các mã hóa đơn đã được nhập trong bảng HoaDon:
+
+SELECT * FROM GetThongTinVatTu(1)
+GO
+
+SELECT * FROM GetThongTinVatTu(2)
+GO
+
+SELECT * FROM GetThongTinVatTu(3)
+GO
+
+--Câu 3: Viết thủ tục để thêm mới một vật tư và kiểm tra trùng tên vật tư:
+
+CREATE PROCEDURE ThemMoiVatTu
+    @MaVT INT,
+    @TenVT NVARCHAR(100),
+    @DonViTinh NVARCHAR(50),
+    @SoLuongCon INT,
+    @Result INT OUTPUT
 AS
 BEGIN
-    SELECT SV.MaSV, SV.TenSV, DK.MaMon, DK.NgayBatDau
-    FROM SinhVien SV
-    JOIN DangKy DK ON SV.MaSV = DK.MaSV
-END 
---Câu 1b: --b) (0.5 điêm): Gọi thực thi thủ tục
-EXEC ThongKeDangKy
+    SET NOCOUNT ON
 
-
---Câu 2a:
-
-
-CREATE PROCEDURE LapBaoCaoDangKy
-    @TenSinhVien nvarchar(30),
-    @Thang int
-AS
-BEGIN
-    SELECT DK.MaMon, MH.TenMon, DK.NgayBatDau, DK.NgayKetThuc
-    FROM SinhVien SV
-    JOIN DangKy DK ON SV.MaSV = DK.MaSV
-    JOIN MonHoc MH ON DK.MaMon = MH.MaMon
-    WHERE SV.TenSV = @TenSinhVien
-    AND MONTH(DK.NgayBatDau) = @Thang
-END
-
--- cau 2 b (0.5 điểm):
-
-EXEC LapBaoCaoDangKy @TenSinhVien = N'Trần Thanh Tùng', @Thang = 9
-
--- cau3 a
-
-CREATE PROCEDURE ThemMoiSinhVien
-    @MaSV char(4),
-    @TenSV nvarchar(30),
-    @QueQuan nvarchar(50),
-    @Result int OUTPUT
-AS
-BEGIN
-    SET @Result = 0
-
-    IF NOT EXISTS (SELECT * FROM SinhVien WHERE TenSV = @TenSV)
+    IF EXISTS (SELECT 1 FROM VatTu WHERE TenVT = @TenVT)
     BEGIN
-        INSERT INTO SinhVien VALUES (@MaSV, @TenSV, @QueQuan)
         SET @Result = 1
+        PRINT N'Tên vật tư đã tồn tại.'
     END
     ELSE
     BEGIN
         SET @Result = 0
-        PRINT 'Tên sinh viên đã tồn tại.'
+        INSERT INTO VatTu (MaVT, TenVT, DonViTinh, SoLuongCon)
+        VALUES (@MaVT, @TenVT, @DonViTinh, @SoLuongCon)
+        PRINT N'Thêm mới vật tư thành công.'
     END
 END
+GO
 
--- cau 3 b
--- trường hợp 1
-DECLARE @Result int
-EXEC ThemMoiSinhVien @MaSV = 'S004', @TenSV = N'Nguyễn Văn A', @QueQuan = N'Hà Nội', @Result = @Result OUTPUT
-SELECT @Result
--- trường hợp 2
-DECLARE @Result int
-EXEC ThemMoiSinhVien @MaSV = 'S001', @TenSV = N'Trần Thanh Tùng', @QueQuan = N'Hà Nội', @Result = @Result OUTPUT
-SELECT @Result
+--- Thực thi thủ tục với các trường hợp:
 
--- câu 4a
-CREATE TRIGGER KhongChoXoaMonHoc
-ON MonHoc
-INSTEAD OF DELETE
+DECLARE @Result INT
+
+EXEC ThemMoiVatTu 4, N'Vật Tư 4', N'Cái', 7, @Result OUTPUT
+SELECT @Result
+GO
+
+-- Tạo trigger INSERT trên bảng ChiTietHD
+CREATE TRIGGER UpdateSoLuongCon
+ON ChiTietHD
+AFTER INSERT
 AS
 BEGIN
-    PRINT 'Không được phép xóa thông tin trong bảng Môn Học.'
+    SET NOCOUNT ON;
+
+    -- Kiểm tra số lượng bán với số lượng còn
+    IF EXISTS (SELECT 1
+               FROM inserted I
+               INNER JOIN VatTu V ON I.MaVT = V.MaVT
+               WHERE I.SoLuongBan > V.SoLuongCon)
+    BEGIN
+        RAISERROR (N'Số lượng bán vượt quá số lượng còn.', 16, 1);
+        ROLLBACK;
+    END
+    ELSE
+    BEGIN
+        -- Cập nhật số lượng còn
+        UPDATE V
+        SET V.SoLuongCon = V.SoLuongCon - I.SoLuongBan
+        FROM inserted I
+        INNER JOIN VatTu V ON I.MaVT = V.MaVT;
+    END
 END
+GO
 
---cau 4 b
+-- Thêm chi tiết hóa đơn vượt quá số lượng còn
+INSERT INTO ChiTietHD (MaHD, MaVT, DonGia, SoLuongBan)
+VALUES (1, 1, 10000, 20)
+GO
 
-DELETE FROM MonHoc WHERE MaMon = 'M001'
--- kiêm tra sau khi xóa
-select *from MonHoc;
+-- Thêm chi tiết hóa đơn không vượt quá số lượng còn
+INSERT INTO ChiTietHD (MaHD, MaVT, DonGia, SoLuongBan)
+VALUES (2, 2, 20000, 3)
+GO
 
---cau 5a
-
-ALTER TABLE DangKy
-ADD ThoiGian int
-
--- cau5 b
-
-CREATE TRIGGER CapNhatThoiGian
-ON DangKy
-AFTER INSERT, UPDATE
-AS
-BEGIN
-    UPDATE DK
-    SET ThoiGian = DATEDIFF(MONTH, DK.NgayBatDau, DK.NgayKetThuc)
-    FROM DangKy DK
-    JOIN inserted I ON DK.MaSV = I.MaSV AND DK.MaMon = I.MaMon
-END
-
--- cau 5  c
--- Kiểm tra giá trị trước khi thay đổi
-SELECT * FROM DangKy WHERE MaMon = 'M001'
-
--- Thực hiện câu truy vấn cập nhật
-UPDATE DangKy SET NgayKetThuc = '2012/11/28' WHERE MaMon = 'M001'
-
--- Kiểm tra kết quả sau khi thay đổi
-SELECT * FROM DangKy WHERE MaMon = 'M001'
+-- Xem kết quả cập nhật số lượng còn
+SELECT * FROM VatTu
+GO
